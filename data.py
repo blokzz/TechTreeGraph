@@ -10,5 +10,10 @@ def preprocess_data():
     df = df.drop(columns=df.columns[2:5])
     df['Science_cost'] = df['Science_cost'].fillna(0).astype(int)
     df['Leads to'] = df['Leads to'].str.split('\n')
-    df = df.replace(r'[\n\t]', ' ', regex=True).replace(np.nan, "None")
+    df = df.replace(r'[\n\t]', ' ', regex=True)
+    df['Technology'] = df['Technology'].apply(lambda x: x.strip() if isinstance(x, str) else x)
+    df['Leads to'] = df['Leads to'].apply(
+        lambda lista: [element.strip() for element in lista if element.strip()] if isinstance(lista, list) else []
+    )
     return df
+
