@@ -20,11 +20,14 @@ def create_techs(tx):
         tech = row['Technology']
         targets = row['Leads to']
         for t in targets:
+            cost_row = df[df['Technology'] == t]
+            cost = int(cost_row['Science_cost'].iloc[0]) if not cost_row.empty else 0
             tx.run("""
                 MERGE (a:Technology {name: $tech})
                 MERGE (b:Technology {name: $target})
-                MERGE (a)-[:LEADS_TO]->(b)
-            """, tech=tech, target=t)
+                MERGE (a)-[r:LEADS_TO]->(b)
+                SET r.cost = $cost
+            """, tech=tech, target=t, cost=cost)
         
 
 def setup(tx):
