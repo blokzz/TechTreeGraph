@@ -62,8 +62,25 @@ def get_path(start, end):
 
 def get_full_graph():
     with driver.session() as s:
-        result = s.run("MATCH (a:Technology)-[:LEADS_TO]->(b:Technology) RETURN a.name AS a, b.name AS b")
-        return [(r["a"], r["b"]) for r in result]
+        result = s.run("""
+            MATCH (a:Technology)-[r:LEADS_TO]->(b:Technology) 
+            RETURN a.name AS a, b.name AS b, r.cost AS koszt
+        """)
+        return [(r["a"], r["b"], r["koszt"]) for r in result]
+
+def get_path_with_cost(start, end):
+    with driver.session() as s:
+        result = s.run("""
+            MATCH path = shortestPath(
+                (a:Technology {name: $start})-[:LEADS_TO*]->(b:Technology {name: $end})
+            )
+            RETURN [n IN nodes(path) | n.name] AS nodes,
+                   reduce(s = 0, r IN relationships(path) | s + r.koszt) AS koszt
+        """, start=start, end=end)
+        record = result.single()
+        if not record:
+            return [], 0
+        return record["nodes"], record["koszt"]
 
 
 def render_graph(edges, highlighted_path=None):
@@ -77,7 +94,7 @@ def render_graph(edges, highlighted_path=None):
             highlight_edges.add((highlighted_path[i], highlighted_path[i+1]))
     
     nodes = set()
-    for a, b in edges:
+    for a, b, _ in edges:
         nodes.add(a); nodes.add(b)
     
     for n in nodes:
@@ -86,11 +103,12 @@ def render_graph(edges, highlighted_path=None):
         else:
             net.add_node(n, label=n, color="#3a86ff", size=15)
     
-    for a, b in edges:
+    for a, b, koszt in edges:
+        koszt = koszt or 0
         if (a, b) in highlight_edges:
-            net.add_edge(a, b, color="#ff4444", width=4)
+            net.add_edge(a, b, color="#ff4444", width=4, label=str(koszt), title=f"Koszt: {koszt}")
         else:
-            net.add_edge(a, b, color="#666666", width=1)
+            net.add_edge(a, b, color="#666666", width=1, title=f"Koszt: {koszt}")
     
     net.save_graph("graph.html")
     with open("graph.html", "r", encoding="utf-8") as f:
